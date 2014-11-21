@@ -5735,6 +5735,12 @@ public final class Settings {
         public static final String ASSIST_SCREENSHOT_ENABLED = "assist_screenshot_enabled";
 
         /**
+         * Whether to include options in power menu for rebooting into recovery and bootloader
+         * @hide
+         */
+        public static final String ADVANCED_REBOOT = "advanced_reboot";
+
+        /**
          * Names of the service components that the current user has explicitly allowed to
          * see all of the user's notifications, separated by ':'.
          *
@@ -5937,6 +5943,7 @@ public final class Settings {
             DOUBLE_TAP_TO_WAKE,
             CAMERA_GESTURE_DISABLED,
             PRIVACY_GUARD_DEFAULT,
+            ADVANCED_REBOOT
         };
 
         /**
