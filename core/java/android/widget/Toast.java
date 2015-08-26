@@ -406,12 +406,13 @@ public class Toast {
                 ImageView appIcon = (ImageView) mView.findViewById(android.R.id.icon);
                 if (appIcon != null) {
                     PackageManager pm = context.getPackageManager();
+                    Drawable icon = null;
                     try {
-                        Drawable icon = pm.getApplicationIcon(packageName);
-                        appIcon.setImageDrawable(icon);
+                        icon = pm.getApplicationIcon(packageName);
                     } catch (PackageManager.NameNotFoundException e) {
-                        // Empty
+                        // nothing to do
                     }
+                    appIcon.setImageDrawable(icon);
                 }
                 mWM = (WindowManager)context.getSystemService(Context.WINDOW_SERVICE);
                 // We can resolve the Gravity here by using the Locale for getting
