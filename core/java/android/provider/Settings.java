@@ -3480,6 +3480,24 @@ public final class Settings {
         public static final String STATUSBAR_CLOCK_DATE_FORMAT = "statusbar_clock_date_format";
 
         /**
+         * show carrier in statusbar. The value is
+         * int (1: Show or 0: Hide).
+         */
+        public static final String STATUS_BAR_CARRIER = "status_bar_carrier";
+
+        /**
+         * custom carrier label. The value is
+         * String.
+         */
+        public static final String CUSTOM_CARRIER_LABEL = "custom_carrier_label";
+
+        /**
+         * Carrier Label Custom Color
+         * @hide
+         */
+        public static final String STATUS_BAR_CARRIER_COLOR = "status_bar_carrier_color";
+
+        /**
          * Display style of the status bar battery information
          * 0: Display the battery an icon in portrait mode
          * 2: Display the battery as a circle
