@@ -18,4 +18,10 @@
     <!-- Floating action button -->
     <color name="fab_color">#ff009688</color>
     <color name="floating_action_button_icon_color">#ffffff</color>
+    
+    <!-- PopupWindows -->
+    <color name="smartbar_editor_popup_background">@android:color/white</color>    <color name="smartbar_editor_popup_text">@android:color/black</color>
+    <color name="smartbar_editor_popup_icon_fill">@*android:color/material_deep_teal_500</color>
+    <color name="smartbar_editor_popup_horiz_separator">@*android:color/material_deep_teal_500</color>
+
 </resources>
