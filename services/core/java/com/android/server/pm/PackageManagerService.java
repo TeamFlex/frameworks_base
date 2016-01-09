@@ -6246,7 +6246,6 @@ public class PackageManagerService extends IPackageManager.Stub {
         if (DEBUG_DEXOPT) {
             Log.i(TAG, "Optimizing app " + curr + " of " + total + ": " + pkg.packageName);
         }
-        if (!isFirstBoot()) {
             try {
                 // give the packagename to the PhoneWindowManager
                 ApplicationInfo ai;
@@ -6262,7 +6261,7 @@ public class PackageManagerService extends IPackageManager.Stub {
                                 curr, total), true);
             } catch (RemoteException e) {
             }
-        }
+
         PackageParser.Package p = pkg;
         synchronized (mInstallLock) {
             mPackageDexOptimizer.performDexOpt(p, null /* instruction sets */,
