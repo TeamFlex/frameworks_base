@@ -3377,6 +3377,12 @@ public final class Settings {
          */
         public static final String KEY_APP_SWITCH_LONG_PRESS_ACTION = "key_app_switch_long_press_action";
 
+         /**
+          * Change the number of columns displayed in the Settings dashboard
+          * @hide
+          */
+         public static final String DASHBOARD_COLUMNS = "dashboard_columns";
+
         /**
          * Show or hide clock
          * 0 - hide
