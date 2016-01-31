@@ -381,31 +381,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     private int mNavigationIconHints = 0;
     private HandlerThread mHandlerThread;
     private DUPackageMonitor mPackageMonitor;
-    
-    class SettingsObserver extends ContentObserver {
-        SettingsObserver(Handler handler) {
-            super(handler);
-        }
-        
-        void observe() {
-            ContentResolver resolver = mContext.getContentResolver();
-            resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.STATUS_BAR_CARRIER), false, this);
-            update();
-        }
-
-        @Override
-        public void onChange(boolean selfChange) {
-            update();
-        }
-
-        public void update() {
-            ContentResolver resolver = mContext.getContentResolver();
-            mShowStatusBarCarrier = Settings.System.getIntForUser(resolver,
-                    Settings.System.STATUS_BAR_CARRIER, 0, mCurrentUserId) == 1;
-            showStatusBarCarrierLabel(mShowStatusBarCarrier);			
-        }
-    }
 
     class SettingsObserver extends ContentObserver {
         SettingsObserver(Handler handler) {
@@ -438,7 +413,23 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.NAVIGATION_BAR_IME_ARROWS),
                     false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                     Settings.System.STATUS_BAR_CARRIER), false, this);
+             update();
+
         }
+
+        @Override
+         public void onChange(boolean selfChange) {
+             update();
+         }
+
+         public void update() {
+             ContentResolver resolver = mContext.getContentResolver();
+            mShowStatusBarCarrier = Settings.System.getIntForUser(resolver,
+                     Settings.System.STATUS_BAR_CARRIER, 0, mCurrentUserId) == 1;
+             showStatusBarCarrierLabel(mShowStatusBarCarrier);			
+         }
 
         @Override
         public void onChange(boolean selfChange, Uri uri) {
@@ -470,7 +461,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                 }
             }
         }
-    }
+      }
 
     // ensure quick settings is disabled until the current user makes it through the setup wizard
     private boolean mUserSetup = false;
