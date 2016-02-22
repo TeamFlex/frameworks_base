@@ -233,7 +233,7 @@ public class NavigationBarView extends BaseNavigationBar {
 
     @Override
     public void setLayoutDirection(int layoutDirection) {
-        getIcons(getAvailableResources());
+        getIcons(getResources());
 
         super.setLayoutDirection(layoutDirection);
     }
