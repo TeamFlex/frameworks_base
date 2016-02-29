@@ -46,10 +46,13 @@ public class NetPluginDelegate {
     private static Class tetherExtensionClass = null;
     private static Object tetherExtensionObj = null;
 
-    public static void getTetherStats(NetworkStats uidStats, NetworkStats devStats,
+    private static boolean extensionFailed;
+
+    static void getTetherStats(NetworkStats uidStats, NetworkStats devStats,
             NetworkStats xtStats) {
-        if (LOGV) Slog.v(TAG, "getTetherStats() E");
-        loadTetherExtJar();
+        if (!loadTetherExtJar()) {
+            return;
+        }
         try {
             tetherExtensionClass.getMethod("getTetherStats", NetworkStats.class,
                     NetworkStats.class, NetworkStats.class).invoke(tetherExtensionObj, uidStats,
@@ -61,9 +64,10 @@ public class NetPluginDelegate {
         if (LOGV) Slog.v(TAG, "getTetherStats() X");
     }
 
-    public static void setQuota(String iface, long quota) {
-        if (LOGV) Slog.v(TAG, "setQuota(" + iface + ", " + quota + ") E");
-        loadTetherExtJar();
+    static void setQuota(String iface, long quota) {
+        if (!loadTetherExtJar()) {
+            return;
+        }
         try {
             tetherExtensionClass.getMethod("setQuota", String.class, long.class).invoke(
                     tetherExtensionObj, iface, quota);
@@ -86,24 +90,26 @@ public class NetPluginDelegate {
     }
 
 
-    private static void loadTetherExtJar() {
+    private static boolean loadTetherExtJar() {
         final String realProvider = "com.qualcomm.qti.tetherstatsextension.TetherStatsReporting";
         final String realProviderPath = "/system/framework/ConnectivityExt.jar";
-            if (tetherExtensionClass == null && tetherExtensionObj == null) {
-                if (LOGV) Slog.v(TAG, "loading ConnectivityExt jar");
-                try {
+        if (!extensionFailed && tetherExtensionClass == null && tetherExtensionObj == null) {
+            if (LOGV) Slog.v(TAG, "loading ConnectivityExt jar");
+            try {
 
-                    PathClassLoader classLoader = new PathClassLoader(realProviderPath,
-                            ClassLoader.getSystemClassLoader());
+                PathClassLoader classLoader = new PathClassLoader(realProviderPath,
+                        ClassLoader.getSystemClassLoader());
 
-                    tetherExtensionClass = classLoader.loadClass(realProvider);
-                    tetherExtensionObj = tetherExtensionClass.newInstance();
-                        if (LOGV)
-                            Slog.v(TAG, "ConnectivityExt jar loaded");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Log.w(TAG, "unable to ConnectivityExt jar");
-                }
+                tetherExtensionClass = classLoader.loadClass(realProvider);
+                tetherExtensionObj = tetherExtensionClass.newInstance();
+                if (LOGV)
+                    Slog.v(TAG, "ConnectivityExt jar loaded");
+                extensionFailed = false;
+            } catch (Exception e) {
+                Log.w(TAG, "Connectivity extension is not available");
+                extensionFailed = true;
+            }
         }
+        return !extensionFailed;
     }
 }
