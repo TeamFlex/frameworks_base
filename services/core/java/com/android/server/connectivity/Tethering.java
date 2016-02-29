@@ -55,6 +55,7 @@ import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.server.IoThread;
+import com.android.server.NetPluginDelegate;
 import com.android.server.net.BaseNetworkObserver;
 
 import java.io.FileDescriptor;
@@ -387,8 +388,11 @@ public class Tethering extends BaseNetworkObserver {
         Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
 
         mContext.sendStickyBroadcastAsUser(broadcast, UserHandle.ALL);
-
-        showTetheredNotification(com.android.internal.R.drawable.stat_sys_tether_wifi);
+        if (!mContext.getResources().getBoolean(
+                com.android.internal.R.bool
+                .config_regional_hotspot_show_notification_when_turn_on)) {
+            showTetheredNotification(com.android.internal.R.drawable.stat_sys_tether_wifi);
+        }
     }
 
     private boolean readDeviceInfoFromDnsmasq(WifiDevice device) {
@@ -632,6 +636,11 @@ public class Tethering extends BaseNetworkObserver {
             } else {
                 /* We now have a status bar icon for WifiTethering, so drop the notification */
                 clearTetheredNotification();
+                if (mContext.getResources().getBoolean(
+                        com.android.internal.R.bool
+                        .config_regional_hotspot_show_notification_when_turn_on)) {
+                    showTetheredNotification(com.android.internal.R.drawable.stat_sys_tether_wifi);
+                }
             }
         } else if (bluetoothTethered) {
             showTetheredNotification(com.android.internal.R.drawable.stat_sys_tether_bluetooth);
@@ -1561,6 +1570,8 @@ public class Tethering extends BaseNetworkObserver {
                         sendMessageDelayed(CMD_RETRY_UPSTREAM, UPSTREAM_SETTLE_TIME_MS);
                     }
                 } else {
+                    Network network = getConnectivityManager().getNetworkForType(upType);
+                    NetPluginDelegate.setUpstream(network);
                     LinkProperties linkProperties =
                             getConnectivityManager().getLinkProperties(upType);
                     if (linkProperties != null) {
@@ -1595,7 +1606,6 @@ public class Tethering extends BaseNetworkObserver {
                             }
                         }
                         try {
-                            Network network = getConnectivityManager().getNetworkForType(upType);
                             if (network == null) {
                                 Log.e(TAG, "No Network for upstream type " + upType + "!");
                             }
