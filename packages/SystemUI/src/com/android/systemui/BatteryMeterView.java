@@ -45,8 +45,7 @@ public class BatteryMeterView extends View implements DemoMode,
     public static final String ACTION_LEVEL_TEST = "com.android.systemui.BATTERY_LEVEL_TEST";
 
     private static final int FULL = 96;
-    private static final int ADD_LEVEL = 10;
-    private static final int ANIM_DURATION = 500;
+
     private static final float BOLT_LEVEL_THRESHOLD = 0.3f;  // opaque bolt below this fraction
 
     private final int[] mColors;
@@ -86,9 +85,129 @@ public class BatteryMeterView extends View implements DemoMode,
     private int mLightModeBackgroundColor;
     private int mLightModeFillColor;
 
-    private BatteryTracker mTracker = new BatteryTracker();
-    private final SettingObserver mSettingObserver = new SettingObserver();
-    private final Handler mHandler;
+    protected BatteryMeterMode mMeterMode = null;
+
+    protected boolean mAttached;
+
+    private boolean mDemoMode;
+    protected BatteryTracker mDemoTracker = new BatteryTracker();
+    protected BatteryTracker mTracker = new BatteryTracker();
+    private BatteryMeterDrawable mBatteryMeterDrawable;
+    private int mIconTint = Color.WHITE;
+
+    private class BatteryTracker extends BroadcastReceiver {
+        public static final int UNKNOWN_LEVEL = -1;
+
+        // current battery status
+        boolean present = true;
+        int level = UNKNOWN_LEVEL;
+        String percentStr;
+        int plugType;
+        boolean plugged;
+        int health;
+        int status;
+        String technology;
+        int voltage;
+        int temperature;
+        boolean testmode = false;
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            if (action.equals(Intent.ACTION_BATTERY_CHANGED)) {
+                if (testmode && ! intent.getBooleanExtra("testmode", false)) return;
+
+                level = (int)(100f
+                        * intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
+                        / intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100));
+
+                present = intent.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
+                plugType = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
+                plugged = plugType != 0;
+                health = intent.getIntExtra(BatteryManager.EXTRA_HEALTH,
+                        BatteryManager.BATTERY_HEALTH_UNKNOWN);
+                status = intent.getIntExtra(BatteryManager.EXTRA_STATUS,
+                        BatteryManager.BATTERY_STATUS_UNKNOWN);
+                technology = intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY);
+                voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0);
+                temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0);
+
+                setContentDescription(
+                        context.getString(R.string.accessibility_battery_level, level));
+                if (mBatteryMeterDrawable != null) {
+                    setVisibility(View.VISIBLE);
+                    invalidate();
+                }
+            } else if (action.equals(ACTION_LEVEL_TEST)) {
+                testmode = true;
+                post(new Runnable() {
+                    int curLevel = 0;
+                    int incr = 1;
+                    int saveLevel = level;
+                    int savePlugged = plugType;
+                    Intent dummy = new Intent(Intent.ACTION_BATTERY_CHANGED);
+                    @Override
+                    public void run() {
+                        if (curLevel < 0) {
+                            testmode = false;
+                            dummy.putExtra("level", saveLevel);
+                            dummy.putExtra("plugged", savePlugged);
+                            dummy.putExtra("testmode", false);
+                        } else {
+                            dummy.putExtra("level", curLevel);
+                            dummy.putExtra("plugged", incr > 0
+                                    ? BatteryManager.BATTERY_PLUGGED_AC : 0);
+                            dummy.putExtra("testmode", true);
+                        }
+                        getContext().sendBroadcast(dummy);
+
+                        if (!testmode) return;
+
+                        curLevel += incr;
+                        if (curLevel == 100) {
+                            incr *= -1;
+                        }
+                        postDelayed(this, 200);
+                    }
+                });
+            }
+        }
+
+        protected boolean shouldIndicateCharging() {
+            if (status == BatteryManager.BATTERY_STATUS_CHARGING) {
+                return true;
+            }
+            if (plugged) {
+                return status == BatteryManager.BATTERY_STATUS_FULL;
+            }
+            return false;
+        }
+    }
+
+    @Override
+    public void onAttachedToWindow() {
+        super.onAttachedToWindow();
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_BATTERY_CHANGED);
+        filter.addAction(ACTION_LEVEL_TEST);
+        final Intent sticky = getContext().registerReceiver(mTracker, filter);
+        if (sticky != null) {
+            // preload the battery level
+            mTracker.onReceive(getContext(), sticky);
+        }
+        mBatteryController.addStateChangedCallback(this);
+        mAttached = true;
+    }
+
+    @Override
+    public void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+
+        mAttached = false;
+        getContext().unregisterReceiver(mTracker);
+        mBatteryController.removeStateChangedCallback(this);
+    }
 
     public BatteryMeterView(Context context) {
         this(context, null, 0);
@@ -101,7 +220,6 @@ public class BatteryMeterView extends View implements DemoMode,
     public BatteryMeterView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
 
-        mHandler = new Handler();
         final Resources res = context.getResources();
         TypedArray atts = context.obtainStyledAttributes(attrs, R.styleable.BatteryMeterView,
                 defStyle, 0);
@@ -136,16 +254,8 @@ public class BatteryMeterView extends View implements DemoMode,
                 context.getColor(R.color.light_mode_icon_color_dual_tone_background);
         mLightModeFillColor = context.getColor(R.color.light_mode_icon_color_dual_tone_fill);
 
-    private final Runnable mInvalidate = new Runnable() {
-        @Override
-        public void run() {
-            postInvalidate();
-        }
-    };
-
-    @Override
-    public void onAttachedToWindow() {
-        super.onAttachedToWindow();
+        setAnimationsEnabled(true);
+    }
 
     protected BatteryMeterDrawable createBatteryMeterDrawable(BatteryMeterMode mode) {
         Resources res = mContext.getResources();
@@ -322,86 +432,39 @@ public class BatteryMeterView extends View implements DemoMode,
         return (int) ArgbEvaluator.getInstance().evaluate(darkIntensity, lightColor, darkColor);
     }
 
-    private int updateChargingAnimLevel(BatteryTracker tracker) {
-        int curLevel = tracker.level;
-
-        if (tracker.status != BatteryManager.BATTERY_STATUS_CHARGING) {
-            if (mIsCharging) {
-                mIsCharging = false;
-                mAnimOffset = 0;
-                mHandler.removeCallbacks(mInvalidate);
-            }
-        } else {
-            mIsCharging = true;
-
-            curLevel += mAnimOffset;
-            if (curLevel >= FULL) {
-                curLevel = 100;
-                mAnimOffset = 0;
-            } else {
-                mAnimOffset += ADD_LEVEL;
-            }
-
-            mHandler.removeCallbacks(mInvalidate);
-            mHandler.postDelayed(mInvalidate, ANIM_DURATION);
+    protected void onDraw(Canvas canvas) {
+        if (mBatteryMeterDrawable != null) {
+            BatteryTracker tracker = mDemoMode ? mDemoTracker : mTracker;
+            mBatteryMeterDrawable.onDraw(canvas, tracker);
         }
-        return curLevel;
     }
 
     @Override
-    public void draw(Canvas c) {
-        final boolean showChargingAnim
-                 = mContext.getResources().getBoolean(R.bool.config_show_battery_charging_anim);
-        BatteryTracker tracker = mDemoMode ? mDemoTracker : mTracker;
+    public boolean hasOverlappingRendering() {
+        return false;
+    }
 
-        final int level = showChargingAnim
-                ? updateChargingAnimLevel(tracker)
-                : tracker.level;
-
-        if (showChargingAnim && getLayerType() != View.LAYER_TYPE_SOFTWARE) {
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-        }
-
-        if (level == BatteryTracker.UNKNOWN_LEVEL) return;
-
-        float drawFrac = (float) level / 100f;
-        final int pt = getPaddingTop();
-        final int pl = getPaddingLeft();
-        final int pr = getPaddingRight();
-        final int pb = getPaddingBottom();
-        final int height = mHeight - pt - pb;
-        final int width = mWidth - pl - pr;
-
-        final int buttonHeight = (int) (height * mButtonHeightFraction);
-
-        mFrame.set(0, 0, width, height);
-        mFrame.offset(pl, pt);
-
-        // button-frame: area above the battery body
-        mButtonFrame.set(
-                mFrame.left + Math.round(width * 0.25f),
-                mFrame.top,
-                mFrame.right - Math.round(width * 0.25f),
-                mFrame.top + buttonHeight);
-
-        mButtonFrame.top += mSubpixelSmoothingLeft;
-        mButtonFrame.left += mSubpixelSmoothingLeft;
-        mButtonFrame.right -= mSubpixelSmoothingRight;
-
-        // frame: battery body area
-        mFrame.top += buttonHeight;
-        mFrame.left += mSubpixelSmoothingLeft;
-        mFrame.top += mSubpixelSmoothingLeft;
-        mFrame.right -= mSubpixelSmoothingRight;
-        mFrame.bottom -= mSubpixelSmoothingRight;
-
-        // set the battery charging color
-        mBatteryPaint.setColor(tracker.plugged ? mChargeColor : getColorForLevel(level));
-
-        if (level >= FULL) {
-            drawFrac = 1f;
-        } else if (level <= mCriticalLevel) {
-            drawFrac = 0f;
+    @Override
+    public void dispatchDemoCommand(String command, Bundle args) {
+        if (getVisibility() == View.VISIBLE) {
+            if (!mDemoMode && command.equals(COMMAND_ENTER)) {
+                mDemoMode = true;
+                mDemoTracker.level = mTracker.level;
+                mDemoTracker.plugged = mTracker.plugged;
+            } else if (mDemoMode && command.equals(COMMAND_EXIT)) {
+                mDemoMode = false;
+                postInvalidate();
+            } else if (mDemoMode && command.equals(COMMAND_BATTERY)) {
+               String level = args.getString("level");
+               String plugged = args.getString("plugged");
+               if (level != null) {
+                   mDemoTracker.level = Math.min(Math.max(Integer.parseInt(level), 0), 100);
+               }
+               if (plugged != null) {
+                   mDemoTracker.plugged = Boolean.parseBoolean(plugged);
+               }
+               postInvalidate();
+            }
         }
     }
 
