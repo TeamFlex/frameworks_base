@@ -25,6 +25,7 @@ import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.app.ActivityManagerNative;
 import android.app.StatusBarManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -35,6 +36,9 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Message;
+import android.os.RemoteException;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.os.RemoteException;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -57,6 +61,7 @@ import com.android.internal.navigation.BaseNavigationBar;
 import com.android.internal.navigation.StatusbarImpl;
 import com.android.internal.navigation.BarTransitions;
 import com.android.systemui.R;
+import com.android.systemui.du.UserContentObserver;
 import com.android.systemui.statusbar.policy.DeadZone;
 import com.android.systemui.statusbar.policy.KeyButtonView;
 
@@ -83,6 +88,8 @@ public class NavigationBarView extends BaseNavigationBar {
     private DeadZone mDeadZone;
     private final NavigationBarTransitions mBarTransitions;
 
+    private SettingsObserver mSettingsObserver;
+    private boolean mDoubleTapToSleep;
 
     // performs manual animation in sync with layout transitions
     private final NavTransitionListener mTransitionListener = new NavTransitionListener();
@@ -154,15 +161,24 @@ public class NavigationBarView extends BaseNavigationBar {
         getIcons(res);
 
         mBarTransitions = new NavigationBarTransitions(this);
+
+        mSettingsObserver = new SettingsObserver(new Handler());
     }
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        mSettingsObserver.observe();
         ViewRootImpl root = getViewRootImpl();
         if (root != null) {
             root.setDrawDuringWindowsAnimating(true);
         }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        mSettingsObserver.unobserve();
     }
 
     @Override
@@ -482,8 +498,35 @@ public class NavigationBarView extends BaseNavigationBar {
         pw.println();
     }
 
-    public interface OnVerticalChangedListener {
-        void onVerticalChanged(boolean isVertical);
+    private class SettingsObserver extends UserContentObserver {
+
+        SettingsObserver(Handler handler) {
+            super(handler);
+        }
+
+        @Override
+        protected void observe() {
+            super.observe();
+            ContentResolver resolver = mContext.getContentResolver();
+            resolver.registerContentObserver(
+                    Settings.System.getUriFor(Settings.System.DOUBLE_TAP_SLEEP_NAVBAR),
+                    false, this, UserHandle.USER_ALL);
+
+            // intialize mModlockDisabled
+            onChange(false);
+        }
+
+        @Override
+        protected void unobserve() {
+            super.unobserve();
+            mContext.getContentResolver().unregisterContentObserver(this);
+        }
+
+        @Override
+        protected void update() {
+            mDoubleTapToSleep = Settings.System.getIntForUser(mContext.getContentResolver(),
+                    Settings.System.DOUBLE_TAP_SLEEP_NAVBAR, 0, UserHandle.USER_CURRENT) != 0;
+        }
     }
 
     @Override
