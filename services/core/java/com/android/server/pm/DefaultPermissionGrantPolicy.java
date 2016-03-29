@@ -629,6 +629,7 @@ final class DefaultPermissionGrantPolicy {
             }
 
             mService.mSettings.onDefaultRuntimePermissionsGrantedLPr(userId);
+	}
     }
 
     private void grantDefaultPermissionsToDefaultSystemDialerAppLPr(
