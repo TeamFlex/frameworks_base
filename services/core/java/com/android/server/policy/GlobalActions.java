@@ -103,7 +103,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     private static final String GLOBAL_ACTION_KEY_LOCKDOWN = "lockdown";
     private static final String GLOBAL_ACTION_KEY_VOICEASSIST = "voiceassist";
     private static final String GLOBAL_ACTION_KEY_ASSIST = "assist";
-    private static final String GLOBAL_ACTION_KEY_REBOOT = "reboot";
 
     private final Context mContext;
     private final WindowManagerFuncs mWindowManagerFuncs;
