@@ -376,7 +376,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
 
     private int mNavigationIconHints = 0;
     private HandlerThread mHandlerThread;
-    private DUPackageMonitor mPackageMonitor;
     
     class SettingsObserver extends ContentObserver {
         SettingsObserver(Handler handler) {
